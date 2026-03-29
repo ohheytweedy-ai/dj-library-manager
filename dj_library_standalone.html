@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>DJ Library Manager</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter', sans-serif; background: #0d0d1a; color: #e2e8f0; min-height: 100vh; }
+  a { color: inherit; text-decoration: none; }
+
+  /* HEADER */
+  .header { background: linear-gradient(135deg, #1a0a2e, #0d0d1a); border-bottom: 1px solid #1e1e2e; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
+  .header-title { font-size: 18px; font-weight: 700; color: #f1f0ff; letter-spacing: -0.3px; }
+  .header-sub { font-size: 11px; color: #888; }
+  .badge-connected { display: flex; align-items: center; gap: 8px; background: #1db954; color: #000; border-radius: 20px; padding: 6px 14px; font-size: 12px; font-weight: 700; }
+  .btn-connect { background: #1db954; color: #000; border: none; border-radius: 20px; padding: 8px 18px; font-weight: 700; font-size: 13px; cursor: pointer; }
+  .btn-connect:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* TABS */
+  .tabs { display: flex; gap: 4px; padding: 16px 24px 0; border-bottom: 1px solid #1e1e2e; }
+  .tab { background: transparent; color: #888; border: none; border-radius: 8px 8px 0 0; padding: 8px 18px; font-weight: 600; font-size: 13px; cursor: pointer; transition: all 0.2s; }
+  .tab.active { background: #a78bfa; color: #000; }
+
+  /* CONTENT */
+  .content { padding: 24px; }
+
+  /* LANDING */
+  .landing { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 70vh; gap: 16px; text-align: center; padding: 32px; }
+  .landing h2 { font-size: 22px; font-weight: 700; color: #f1f0ff; }
+  .landing p { color: #888; max-width: 400px; line-height: 1.6; }
+  .btn-primary { background: #1db954; color: #000; border: none; border-radius: 24px; padding: 12px 28px; font-weight: 700; font-size: 15px; cursor: pointer; margin-top: 8px; }
+
+  /* TOOLBAR */
+  .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px; }
+  .toolbar-title { font-weight: 700; font-size: 17px; color: #f1f0ff; }
+  .toolbar-sub { color: #888; font-size: 12px; }
+  .toolbar-controls { display: flex; gap: 10px; flex-wrap: wrap; }
+  input[type=text], select { background: #1e1e2e; border: 1px solid #2a2a3e; border-radius: 8px; padding: 7px 12px; color: #e2e8f0; font-size: 13px; outline: none; }
+  input[type=text] { width: 200px; }
+  .btn-export { background: #2a2a3e; color: #a78bfa; border: 1px solid #a78bfa; border-radius: 8px; padding: 7px 14px; font-size: 13px; font-weight: 600; cursor: pointer; }
+
+  /* LEGEND */
+  .legend { background: #13131f; border: 1px solid #2a2a3e; border-radius: 10px; padding: 12px 16px; margin-bottom: 16px; display: flex; flex-wrap: wrap; gap: 20px; }
+  .legend-label { font-size: 11px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .legend-items { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: #ccc; align-items: center; }
+  .score-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; margin-right: 4px; }
+
+  /* TABLE */
+  .table-wrap { background: #13131f; border-radius: 12px; overflow: hidden; border: 1px solid #1e1e2e; overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; min-width: 900px; }
+  thead tr { background: #1a1a2e; }
+  thead th { padding: 10px 14px; font-size: 11px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 0.5px; text-align: left; white-space: nowrap; }
+  tbody tr { border-bottom: 1px solid #1e1e2e; }
+  tbody tr:hover { background: #161625; }
+  tbody td { padding: 10px 14px; font-size: 13px; white-space: nowrap; }
+  .td-title { font-weight: 600; color: #f1f0ff; max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
+  .td-artist { color: #ccc; max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
+  .td-genre { color: #a78bfa; }
+  .td-sub { color: #818cf8; }
+  .td-center { text-align: center; color: #e2e8f0; }
+  .td-year { text-align: center; color: #888; }
+  .pill { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; }
+
+  /* BUILDER */
+  .builder-wrap { max-width: 720px; }
+  .mode-toggle { display: flex; gap: 8px; margin-bottom: 20px; }
+  .mode-btn { background: #1e1e2e; color: #888; border: none; border-radius: 8px; padding: 8px 18px; font-weight: 600; font-size: 13px; cursor: pointer; }
+  .mode-btn.active { background: #a78bfa; color: #000; }
+  .vibe-card { background: #13131f; border: 1px solid #1e1e2e; border-radius: 12px; padding: 14px 18px; cursor: pointer; display: flex; align-items: center; gap: 14px; margin-bottom: 10px; transition: all 0.2s; }
+  .vibe-card.selected { background: #1a0a2e; border-color: #a78bfa; }
+  .vibe-icon { font-size: 26px; }
+  .vibe-name { font-weight: 600; color: #f1f0ff; font-size: 14px; }
+  .vibe-card.selected .vibe-name { color: #a78bfa; }
+  .vibe-desc { color: #888; font-size: 12px; margin-top: 2px; }
+  .vibe-check { margin-left: auto; color: #a78bfa; font-size: 18px; }
+  .manual-wrap { background: #13131f; border: 1px solid #1e1e2e; border-radius: 12px; padding: 20px; margin-bottom: 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .manual-wrap .full { grid-column: span 2; }
+  .slider-label { font-size: 12px; color: #888; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  input[type=range] { width: 100%; accent-color: #a78bfa; }
+  .btn-generate { background: linear-gradient(135deg, #a78bfa, #7c3aed); color: #fff; border: none; border-radius: 12px; padding: 13px 28px; font-weight: 700; font-size: 15px; cursor: pointer; width: 100%; margin-top: 8px; }
+  .btn-generate:disabled { background: #2a2a3e; opacity: 0.5; cursor: not-allowed; }
+
+  /* PLAYLIST */
+  .playlist-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; flex-wrap: wrap; gap: 12px; }
+  .playlist-title { font-weight: 700; font-size: 20px; color: #f1f0ff; }
+  .playlist-sub { color: #888; font-size: 13px; margin-top: 4px; }
+  .btn-push { background: #1db954; color: #000; border: none; border-radius: 10px; padding: 10px 20px; font-weight: 700; font-size: 13px; cursor: pointer; }
+  .pushed-badge { background: #1a2e1a; border: 1px solid #1db954; border-radius: 10px; padding: 10px 20px; color: #1db954; font-weight: 700; font-size: 13px; }
+  .empty { text-align: center; padding: 48px; color: #888; }
+  .empty-icon { font-size: 40px; margin-bottom: 12px; }
+
+  /* LOADING */
+  .loading-overlay { position: fixed; inset: 0; background: rgba(13,13,26,0.85); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; z-index: 999; }
+  .spinner { width: 40px; height: 40px; border: 3px solid #2a2a3e; border-top-color: #a78bfa; border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text { color: #a78bfa; font-weight: 600; font-size: 15px; }
+</style>
+</head>
+<body>
+
+<div id="loading-overlay" class="loading-overlay" style="display:none">
+  <div class="spinner"></div>
+  <div class="loading-text" id="loading-text">Loading...</div>
+</div>
+
+<div class="header">
+  <div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <span style="font-size:24px">🎧</span>
+      <div>
+        <div class="header-title">DJ Library Manager</div>
+        <div class="header-sub">Smart Playlist Builder</div>
+      </div>
+    </div>
+  </div>
+  <div id="header-action">
+    <button class="btn-connect" onclick="startAuth()">Connect Spotify</button>
+  </div>
+</div>
+
+<div id="landing" class="landing">
+  <div style="font-size:56px">🎵</div>
+  <h2>Connect your Spotify to get started</h2>
+  <p>We'll analyze your full library, enrich every track with BPM, key, energy and mood data, and let an AI DJ build smart playlists — pushed directly to your Spotify.</p>
+  <button class="btn-primary" onclick="startAuth()">Connect Spotify</button>
+</div>
+
+<div id="app" style="display:none">
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('library', this)">📚 Library</button>
+    <button class="tab" onclick="switchTab('builder', this)">🎛 Playlist Builder</button>
+    <button class="tab" onclick="switchTab('playlist', this)">🎶 Generated Playlist</button>
+  </div>
+
+  <div class="content">
+
+    <!-- LIBRARY -->
+    <div id="tab-library">
+      <div class="toolbar">
+        <div>
+          <div class="toolbar-title">Your Library</div>
+          <div class="toolbar-sub" id="library-count">Loading tracks...</div>
+        </div>
+        <div class="toolbar-controls">
+          <input type="text" id="search-input" placeholder="Search tracks..." oninput="renderLibrary()" />
+          <select id="genre-filter" onchange="renderLibrary()"><option>All Genres</option></select>
+          <button class="btn-export" onclick="exportExcel()">⬇ Export Excel</button>
+        </div>
+      </div>
+      <div class="legend">
+        <div>
+          <div class="legend-label">Column Guide</div>
+          <div class="legend-items">
+            <span><strong style="color:#e2e8f0">BPM</strong> — Beats per minute</span>
+            <span><strong style="color:#e2e8f0">Key</strong> — Musical key</span>
+            <span><strong style="color:#e2e8f0">Energy</strong> — Intensity level</span>
+            <span><strong style="color:#e2e8f0">Dance</strong> — Danceability score</span>
+          </div>
+        </div>
+        <div>
+          <div class="legend-label">Score Key</div>
+          <div class="legend-items">
+            <span><span class="score-dot" style="background:#34d399"></span><span style="color:#34d399;font-weight:600">High</span> <span style="color:#666">80–100%</span></span>
+            <span><span class="score-dot" style="background:#fbbf24"></span><span style="color:#fbbf24;font-weight:600">Mid</span> <span style="color:#666">50–79%</span></span>
+            <span><span class="score-dot" style="background:#f87171"></span><span style="color:#f87171;font-weight:600">Low</span> <span style="color:#666">0–49%</span></span>
+          </div>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Track</th><th>Artist</th><th>Genre</th><th>Subgenre</th>
+              <th style="text-align:center">BPM</th><th style="text-align:center">Key</th>
+              <th style="text-align:center">Year</th><th>Energy</th><th>Dance</th>
+            </tr>
+          </thead>
+          <tbody id="library-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- BUILDER -->
+    <div id="tab-builder" style="display:none">
+      <div class="builder-wrap">
+        <div style="font-weight:700;font-size:17px;color:#f1f0ff;margin-bottom:4px">AI DJ Playlist Builder</div>
+        <div style="color:#888;font-size:13px;margin-bottom:20px">Choose a vibe or set your own parameters. We'll build the set and push it straight to Spotify.</div>
+        <div class="mode-toggle">
+          <button class="mode-btn active" id="btn-guided" onclick="setMode('guided')">🎯 Guided Vibes</button>
+          <button class="mode-btn" id="btn-manual" onclick="setMode('manual')">🎛 Manual Filters</button>
+        </div>
+        <div id="guided-section">
+          <div id="vibe-cards"></div>
+        </div>
+        <div id="manual-section" style="display:none">
+          <div class="manual-wrap">
+            <div>
+              <div class="slider-label">BPM Min: <span id="bpm-min-val">110</span></div>
+              <input type="range" min="85" max="145" value="110" id="bpm-min" oninput="document.getElementById('bpm-min-val').textContent=this.value" />
+            </div>
+            <div>
+              <div class="slider-label">BPM Max: <span id="bpm-max-val">135</span></div>
+              <input type="range" min="85" max="145" value="135" id="bpm-max" oninput="document.getElementById('bpm-max-val').textContent=this.value" />
+            </div>
+            <div class="full">
+              <div class="slider-label">Min Energy: <span id="energy-val">50</span>%</div>
+              <input type="range" min="0" max="100" value="50" id="energy-slider" oninput="document.getElementById('energy-val').textContent=this.value" />
+            </div>
+          </div>
+        </div>
+        <button class="btn-generate" id="btn-generate" onclick="generatePlaylist()" disabled>✨ Generate Playlist</button>
+      </div>
+    </div>
+
+    <!-- PLAYLIST -->
+    <div id="tab-playlist" style="display:none">
+      <div id="playlist-empty" class="empty">
+        <div class="empty-icon">🎛</div>
+        <div>No playlist generated yet. Head to <strong style="color:#a78bfa">Playlist Builder</strong> to create one.</div>
+      </div>
+      <div id="playlist-content" style="display:none">
+        <div class="playlist-header">
+          <div>
+            <div class="playlist-title" id="playlist-name"></div>
+            <div class="playlist-sub" id="playlist-sub"></div>
+          </div>
+          <div id="push-area">
+            <button class="btn-push" onclick="pushToSpotify()">▶ Push to Spotify</button>
+          </div>
+        </div>
+        <div class="legend">
+          <div>
+            <div class="legend-label">Column Guide</div>
+            <div class="legend-items">
+              <span><strong style="color:#e2e8f0">BPM</strong> — Beats per minute</span>
+              <span><strong style="color:#e2e8f0">Key</strong> — Musical key</span>
+              <span><strong style="color:#e2e8f0">Energy</strong> — Intensity level</span>
+              <span><strong style="color:#e2e8f0">Dance</strong> — Danceability score</span>
+            </div>
+          </div>
+          <div>
+            <div class="legend-label">Score Key</div>
+            <div class="legend-items">
+              <span><span class="score-dot" style="background:#34d399"></span><span style="color:#34d399;font-weight:600">High</span> <span style="color:#666">80–100%</span></span>
+              <span><span class="score-dot" style="background:#fbbf24"></span><span style="color:#fbbf24;font-weight:600">Mid</span> <span style="color:#666">50–79%</span></span>
+              <span><span class="score-dot" style="background:#f87171"></span><span style="color:#f87171;font-weight:600">Low</span> <span style="color:#666">0–49%</span></span>
+            </div>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Track</th><th>Artist</th><th>Genre</th><th>Subgenre</th>
+                <th style="text-align:center">BPM</th><th style="text-align:center">Key</th>
+                <th>Energy</th><th>Dance</th>
+              </tr>
+            </thead>
+            <tbody id="playlist-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const CLIENT_ID = 'd28269c6515747a5b2e9befa2cfaddd7';
+const REDIRECT_URI = 'http://localhost:8080/callback';
+const SCOPES = 'user-library-read playlist-read-private playlist-modify-public playlist-modify-private';
+
+const VIBES = [
+  { id:'warmup', label:'Deep House Warmup', icon:'🌅', desc:'Smooth, soulful. BPM 110–122, low–mid energy.', bpmMin:110, bpmMax:122, energyMin:0.5, energyMax:0.75 },
+  { id:'peak', label:'Peak Hour', icon:'🔥', desc:'High energy, peak floor. BPM 126–135, max danceability.', bpmMin:126, bpmMax:135, energyMin:0.82, energyMax:1 },
+  { id:'latenight', label:'Late Night Wind-Down', icon:'🌙', desc:'Moody, hypnotic. BPM 95–112, low energy.', bpmMin:95, bpmMax:112, energyMin:0.3, energyMax:0.65 },
+  { id:'disco', label:'Disco & Classic House', icon:'🪩', desc:'Feel-good, timeless. BPM 115–128.', bpmMin:115, bpmMax:128, energyMin:0.7, energyMax:0.95 },
+  { id:'highenergy', label:'High Energy Rave', icon:'⚡', desc:'Full send. BPM 130+, energy 0.88+.', bpmMin:130, bpmMax:145, energyMin:0.88, energyMax:1 },
+];
+
+let accessToken = null;
+let allTracks = [];
+let generatedTracks = [];
+let selectedVibe = null;
+let builderMode = 'guided';
+let generatedPlaylistName = '';
+
+// KEY NOTATION MAP (Spotify pitch class + mode)
+const KEYS = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+function getKey(k, mode) {
+  if (k === -1) return '—';
+  return KEYS[k] + (mode === 1 ? ' maj' : ' min');
+}
+
+// CAMELOT WHEEL (for harmonic mixing display)
+function getCamelot(k, mode) {
+  const major = ['8B','3B','10B','5B','12B','7B','2B','9B','4B','11B','6B','1B'];
+  const minor = ['5A','12A','7A','2A','9A','4A','11A','6A','1A','8A','3A','10A'];
+  if (k === -1) return '—';
+  return mode === 1 ? major[k] : minor[k];
+}
+
+function scorePill(v) {
+  if (v === null || v === undefined) return '<span style="color:#666;font-size:12px">—</span>';
+  const pct = Math.round(v * 100);
+  const color = v >= 0.8 ? '#34d399' : v >= 0.5 ? '#fbbf24' : '#f87171';
+  const label = v >= 0.8 ? 'High' : v >= 0.5 ? 'Mid' : 'Low';
+  return `<span class="pill"><span class="score-dot" style="background:${color}"></span><span style="color:${color}">${label}</span><span style="color:#666;font-size:11px">(${pct}%)</span></span>`;
+}
+
+function showLoading(msg) {
+  document.getElementById('loading-text').textContent = msg;
+  document.getElementById('loading-overlay').style.display = 'flex';
+}
+function hideLoading() {
+  document.getElementById('loading-overlay').style.display = 'none';
+}
+
+// AUTH
+function startAuth() {
+  const state = Math.random().toString(36).slice(2);
+  sessionStorage.setItem('spotify_state', state);
+  const params = new URLSearchParams({
+    client_id: CLIENT_ID, response_type: 'token',
+    redirect_uri: REDIRECT_URI, scope: SCOPES, state
+  });
+  window.location = 'https://accounts.spotify.com/authorize?' + params;
+}
+
+function handleCallback() {
+  const hash = window.location.hash.substring(1);
+  const params = new URLSearchParams(hash);
+  if (params.get('access_token')) {
+    accessToken = params.get('access_token');
+    sessionStorage.setItem('spotify_token', accessToken);
+    window.history.replaceState({}, '', window.location.pathname);
+    initApp();
+  }
+}
+
+function checkToken() {
+  const t = sessionStorage.getItem('spotify_token');
+  if (t) { accessToken = t; initApp(); }
+}
+
+async function initApp() {
+  document.getElementById('landing').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('header-action').innerHTML =
+    '<div class="badge-connected"><div style="width:7px;height:7px;background:#000;border-radius:50%;opacity:0.5"></div>Spotify Connected</div>';
+  buildVibeCards();
+  await loadLibrary();
+}
+
+// SPOTIFY API
+async function spotifyGet(url) {
+  const res = await fetch(url, { headers: { Authorization: 'Bearer ' + accessToken } });
+  if (!res.ok) throw new Error('Spotify API error ' + res.status);
+  return res.json();
+}
+
+async function loadLibrary() {
+  showLoading('Fetching your Spotify library...');
+  try {
+    allTracks = [];
+    let url = 'https://api.spotify.com/v1/me/tracks?limit=50';
+    while (url) {
+      const data = await spotifyGet(url);
+      for (const item of data.items) {
+        const t = item.track;
+        if (!t || !t.id) continue;
+        allTracks.push({
+          id: t.id,
+          uri: t.uri,
+          title: t.name,
+          artist: t.artists.map(a => a.name).join(', '),
+          album: t.album?.name || '—',
+          year: t.album?.release_date?.slice(0,4) || '—',
+          duration: msToMin(t.duration_ms),
+          genre: '—', subgenre: '—',
+          bpm: null, key: '—', camelot: '—',
+          energy: null, danceability: null, valence: null
+        });
+      }
+      url = data.next;
+    }
+    document.getElementById('library-count').textContent = `${allTracks.length} tracks found · Enriching with audio features...`;
+    await enrichTracks();
+    buildGenreFilter();
+    renderLibrary();
+    document.getElementById('library-count').textContent = `${allTracks.length} tracks analyzed`;
+  } catch(e) {
+    document.getElementById('library-count').textContent = 'Error loading library. Token may have expired — refresh the page.';
+    console.error(e);
+  }
+  hideLoading();
+}
+
+async function enrichTracks() {
+  // Batch audio features (100 at a time)
+  for (let i = 0; i < allTracks.length; i += 100) {
+    const batch = allTracks.slice(i, i+100);
+    const ids = batch.map(t => t.id).join(',');
+    showLoading(`Analyzing tracks ${i+1}–${Math.min(i+100, allTracks.length)} of ${allTracks.length}...`);
+    try {
+      const data = await spotifyGet(`https://api.spotify.com/v1/audio-features?ids=${ids}`);
+      data.audio_features.forEach((f, idx) => {
+        if (!f) return;
+        const t = allTracks[i + idx];
+        t.bpm = Math.round(f.tempo);
+        t.key = getKey(f.key, f.mode);
+        t.camelot = getCamelot(f.key, f.mode);
+        t.energy = f.energy;
+        t.danceability = f.danceability;
+        t.valence = f.valence;
+      });
+    } catch(e) { console.warn('Audio features batch failed', e); }
+  }
+}
+
+function msToMin(ms) {
+  const s = Math.round(ms / 1000);
+  return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+}
+
+function buildGenreFilter() {
+  const sel = document.getElementById('genre-filter');
+  sel.innerHTML = '<option>All Genres</option>';
+  // Genres mostly come from artist lookup — for now label as Electronic/House etc based on subgenre if available
+  // Since Spotify doesn't return genre per track, we keep it as-is
+}
+
+function renderLibrary() {
+  const search = document.getElementById('search-input').value.toLowerCase();
+  const genre = document.getElementById('genre-filter').value;
+  const rows = allTracks.filter(t => {
+    const ms = t.title.toLowerCase().includes(search) || t.artist.toLowerCase().includes(search);
+    const mg = genre === 'All Genres' || t.genre === genre;
+    return ms && mg;
+  });
+  const tbody = document.getElementById('library-body');
+  tbody.innerHTML = rows.map(t => `
+    <tr>
+      <td class="td-title">${esc(t.title)}</td>
+      <td class="td-artist">${esc(t.artist)}</td>
+      <td class="td-genre">${esc(t.genre)}</td>
+      <td class="td-sub">${esc(t.subgenre)}</td>
+      <td class="td-center">${t.bpm ?? '—'}</td>
+      <td class="td-center">${esc(t.key)}</td>
+      <td class="td-year">${esc(t.year)}</td>
+      <td>${scorePill(t.energy)}</td>
+      <td>${scorePill(t.danceability)}</td>
+    </tr>
+  `).join('');
+}
+
+function esc(s) {
+  if (!s) return '—';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// BUILDER
+function buildVibeCards() {
+  document.getElementById('vibe-cards').innerHTML = VIBES.map(v => `
+    <div class="vibe-card" id="vibe-${v.id}" onclick="selectVibe('${v.id}')">
+      <div class="vibe-icon">${v.icon}</div>
+      <div>
+        <div class="vibe-name">${v.label}</div>
+        <div class="vibe-desc">${v.desc}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function selectVibe(id) {
+  selectedVibe = id;
+  document.querySelectorAll('.vibe-card').forEach(c => c.classList.remove('selected'));
+  const card = document.getElementById('vibe-' + id);
+  card.classList.add('selected');
+  card.innerHTML += '<div class="vibe-check">✓</div>';
+  document.getElementById('btn-generate').disabled = false;
+}
+
+function setMode(m) {
+  builderMode = m;
+  document.getElementById('guided-section').style.display = m === 'guided' ? 'block' : 'none';
+  document.getElementById('manual-section').style.display = m === 'manual' ? 'block' : 'none';
+  document.getElementById('btn-guided').className = 'mode-btn' + (m === 'guided' ? ' active' : '');
+  document.getElementById('btn-manual').className = 'mode-btn' + (m === 'manual' ? ' active' : '');
+  document.getElementById('btn-generate').disabled = m === 'guided' && !selectedVibe;
+  if (m === 'manual') document.getElementById('btn-generate').disabled = false;
+}
+
+function generatePlaylist() {
+  let tracks;
+  if (builderMode === 'guided') {
+    const v = VIBES.find(x => x.id === selectedVibe);
+    generatedPlaylistName = v.label;
+    tracks = allTracks.filter(t =>
+      t.bpm >= v.bpmMin && t.bpm <= v.bpmMax &&
+      t.energy >= v.energyMin && t.energy <= v.energyMax
+    ).sort((a, b) => a.energy - b.energy);
+  } else {
+    const bpmMin = +document.getElementById('bpm-min').value;
+    const bpmMax = +document.getElementById('bpm-max').value;
+    const energyMin = +document.getElementById('energy-slider').value / 100;
+    generatedPlaylistName = `Custom Mix (${bpmMin}–${bpmMax} BPM)`;
+    tracks = allTracks.filter(t =>
+      t.bpm >= bpmMin && t.bpm <= bpmMax && t.energy >= energyMin
+    ).sort((a, b) => a.bpm - b.bpm);
+  }
+  generatedTracks = tracks;
+  renderPlaylist();
+  switchTab('playlist', document.querySelectorAll('.tab')[2]);
+}
+
+function renderPlaylist() {
+  const empty = document.getElementById('playlist-empty');
+  const content = document.getElementById('playlist-content');
+  if (!generatedTracks.length && generatedPlaylistName === '') { empty.style.display='block'; content.style.display='none'; return; }
+  empty.style.display = 'none';
+  content.style.display = 'block';
+  document.getElementById('playlist-name').textContent = generatedPlaylistName;
+  document.getElementById('playlist-sub').textContent = `${generatedTracks.length} tracks · Ready to push to Spotify`;
+  document.getElementById('push-area').innerHTML = '<button class="btn-push" onclick="pushToSpotify()">▶ Push to Spotify</button>';
+  document.getElementById('playlist-body').innerHTML = generatedTracks.map(t => `
+    <tr>
+      <td class="td-title">${esc(t.title)}</td>
+      <td class="td-artist">${esc(t.artist)}</td>
+      <td class="td-genre">${esc(t.genre)}</td>
+      <td class="td-sub">${esc(t.subgenre)}</td>
+      <td class="td-center">${t.bpm ?? '—'}</td>
+      <td class="td-center">${esc(t.key)}</td>
+      <td>${scorePill(t.energy)}</td>
+      <td>${scorePill(t.danceability)}</td>
+    </tr>
+  `).join('');
+}
+
+async function pushToSpotify() {
+  if (!generatedTracks.length) return;
+  showLoading('Creating playlist in Spotify...');
+  try {
+    const me = await spotifyGet('https://api.spotify.com/v1/me');
+    const userId = me.id;
+    const createRes = await fetch(`https://api.spotify.com/v1/users/${userId}/playlists`, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: generatedPlaylistName, description: 'Built by DJ Library Manager', public: false })
+    });
+    const playlist = await createRes.json();
+    const uris = generatedTracks.map(t => t.uri);
+    for (let i = 0; i < uris.length; i += 100) {
+      await fetch(`https://api.spotify.com/v1/playlists/${playlist.id}/tracks`, {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uris: uris.slice(i, i+100) })
+      });
+    }
+    document.getElementById('push-area').innerHTML = '<div class="pushed-badge">✓ Added to Spotify</div>';
+  } catch(e) {
+    alert('Error pushing to Spotify. Your token may have expired — refresh the page.');
+    console.error(e);
+  }
+  hideLoading();
+}
+
+// EXCEL EXPORT
+function exportExcel() {
+  const wb = XLSX.utils.book_new();
+
+  // Sheet 1: Full Library
+  const libData = [['Track','Artist','Genre','Subgenre','BPM','Key','Camelot','Energy %','Danceability %','Valence %','Year','Duration','Album']];
+  allTracks.forEach(t => libData.push([
+    t.title, t.artist, t.genre, t.subgenre,
+    t.bpm ?? '', t.key, t.camelot,
+    t.energy != null ? Math.round(t.energy*100) : '',
+    t.danceability != null ? Math.round(t.danceability*100) : '',
+    t.valence != null ? Math.round(t.valence*100) : '',
+    t.year, t.duration, t.album
+  ]));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(libData), 'Full Library');
+
+  // Sheet 2: Generated Playlist (if exists)
+  if (generatedTracks.length) {
+    const plData = [['Playlist: ' + generatedPlaylistName], ['Track','Artist','BPM','Key','Camelot','Energy %','Danceability %']];
+    generatedTracks.forEach(t => plData.push([
+      t.title, t.artist, t.bpm ?? '', t.key, t.camelot,
+      t.energy != null ? Math.round(t.energy*100) : '',
+      t.danceability != null ? Math.round(t.danceability*100) : ''
+    ]));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(plData), 'Generated Playlist');
+  }
+
+  XLSX.writeFile(wb, 'dj_library.xlsx');
+}
+
+// TABS
+function switchTab(name, btn) {
+  ['library','builder','playlist'].forEach(t => document.getElementById('tab-'+t).style.display = t===name ? 'block' : 'none');
+  document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+// INIT — handle Spotify redirect regardless of path
+(function() {
+  const hash = window.location.hash.substring(1);
+  const params = new URLSearchParams(hash);
+  const token = params.get('access_token');
+  if (token) {
+    sessionStorage.setItem('spotify_token', token);
+    // Redirect cleanly back to the app
+    window.location.replace('http://localhost:8080/dj-library-manager.html');
+  } else {
+    checkToken();
+  }
+})();
+</script>
+</body>
+</html>
