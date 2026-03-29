@@ -272,6 +272,18 @@ const CLIENT_ID = 'd28269c6515747a5b2e9befa2cfaddd7';
 const REDIRECT_URI = 'https://ohheytweedy-ai.github.io/dj-library-manager/dj_library_standalone.html';
 const SCOPES = 'user-library-read playlist-read-private playlist-modify-public playlist-modify-private';
 
+// PKCE helpers
+async function generateCodeVerifier() {
+  const arr = new Uint8Array(64);
+  crypto.getRandomValues(arr);
+  return btoa(String.fromCharCode(...arr)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+async function generateCodeChallenge(verifier) {
+  const data = new TextEncoder().encode(verifier);
+  const digest = await crypto.subtle.digest('SHA-256', data);
+  return btoa(String.fromCharCode(...new Uint8Array(digest))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+
 const VIBES = [
   { id:'warmup', label:'Deep House Warmup', icon:'🌅', desc:'Smooth, soulful. BPM 110–122, low–mid energy.', bpmMin:110, bpmMax:122, energyMin:0.5, energyMax:0.75 },
   { id:'peak', label:'Peak Hour', icon:'🔥', desc:'High energy, peak floor. BPM 126–135, max danceability.', bpmMin:126, bpmMax:135, energyMin:0.82, energyMax:1 },
@@ -318,25 +330,45 @@ function hideLoading() {
   document.getElementById('loading-overlay').style.display = 'none';
 }
 
-// AUTH
-function startAuth() {
-  const state = Math.random().toString(36).slice(2);
-  sessionStorage.setItem('spotify_state', state);
+// AUTH — PKCE flow
+async function startAuth() {
+  const verifier = await generateCodeVerifier();
+  const challenge = await generateCodeChallenge(verifier);
+  sessionStorage.setItem('pkce_verifier', verifier);
   const params = new URLSearchParams({
-    client_id: CLIENT_ID, response_type: 'token',
-    redirect_uri: REDIRECT_URI, scope: SCOPES, state
+    client_id: CLIENT_ID,
+    response_type: 'code',
+    redirect_uri: REDIRECT_URI,
+    scope: SCOPES,
+    code_challenge_method: 'S256',
+    code_challenge: challenge
   });
   window.location = 'https://accounts.spotify.com/authorize?' + params;
 }
 
-function handleCallback() {
-  const hash = window.location.hash.substring(1);
-  const params = new URLSearchParams(hash);
-  if (params.get('access_token')) {
-    accessToken = params.get('access_token');
+async function exchangeCode(code) {
+  const verifier = sessionStorage.getItem('pkce_verifier');
+  const res = await fetch('https://accounts.spotify.com/api/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id: CLIENT_ID,
+      grant_type: 'authorization_code',
+      code,
+      redirect_uri: REDIRECT_URI,
+      code_verifier: verifier
+    })
+  });
+  const data = await res.json();
+  if (data.access_token) {
+    accessToken = data.access_token;
     sessionStorage.setItem('spotify_token', accessToken);
+    if (data.refresh_token) sessionStorage.setItem('spotify_refresh', data.refresh_token);
     window.history.replaceState({}, '', window.location.pathname);
     initApp();
+  } else {
+    console.error('Token exchange failed', data);
+    alert('Spotify login failed. Please try again.');
   }
 }
 
@@ -604,14 +636,12 @@ function switchTab(name, btn) {
   btn.classList.add('active');
 }
 
-// INIT — handle Spotify redirect
+// INIT — handle PKCE callback or existing token
 (function() {
-  const hash = window.location.hash.substring(1);
-  const params = new URLSearchParams(hash);
-  const token = params.get('access_token');
-  if (token) {
-    sessionStorage.setItem('spotify_token', token);
-    window.location.replace('https://ohheytweedy-ai.github.io/dj-library-manager/dj_library_standalone.html');
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get('code');
+  if (code) {
+    exchangeCode(code);
   } else {
     checkToken();
   }
