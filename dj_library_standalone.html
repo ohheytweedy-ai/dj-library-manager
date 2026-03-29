@@ -269,7 +269,7 @@
 
 <script>
 const CLIENT_ID = 'd28269c6515747a5b2e9befa2cfaddd7';
-const REDIRECT_URI = 'https://ohheytweedy-ai.github.io/dj-library-manager/';
+const REDIRECT_URI = 'https://ohheytweedy-ai.github.io/dj-library-manager/dj_library_standalone.html';
 const SCOPES = 'user-library-read playlist-read-private playlist-modify-public playlist-modify-private';
 
 const VIBES = [
@@ -611,7 +611,7 @@ function switchTab(name, btn) {
   const token = params.get('access_token');
   if (token) {
     sessionStorage.setItem('spotify_token', token);
-    window.location.replace('https://ohheytweedy-ai.github.io/dj-library-manager/');
+    window.location.replace('https://ohheytweedy-ai.github.io/dj-library-manager/dj_library_standalone.html');
   } else {
     checkToken();
   }
