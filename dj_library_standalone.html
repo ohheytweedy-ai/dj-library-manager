@@ -269,7 +269,7 @@
 
 <script>
 const CLIENT_ID = 'd28269c6515747a5b2e9befa2cfaddd7';
-const REDIRECT_URI = 'http://localhost:8080/callback';
+const REDIRECT_URI = 'https://ohheytweedy-ai.github.io/dj-library-manager/';
 const SCOPES = 'user-library-read playlist-read-private playlist-modify-public playlist-modify-private';
 
 const VIBES = [
@@ -604,15 +604,14 @@ function switchTab(name, btn) {
   btn.classList.add('active');
 }
 
-// INIT — handle Spotify redirect regardless of path
+// INIT — handle Spotify redirect
 (function() {
   const hash = window.location.hash.substring(1);
   const params = new URLSearchParams(hash);
   const token = params.get('access_token');
   if (token) {
     sessionStorage.setItem('spotify_token', token);
-    // Redirect cleanly back to the app
-    window.location.replace('http://localhost:8080/dj-library-manager.html');
+    window.location.replace('https://ohheytweedy-ai.github.io/dj-library-manager/');
   } else {
     checkToken();
   }
